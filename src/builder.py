@@ -39,7 +39,7 @@ class AppBuilder(object):
         self.app.layout = self.build_app_layout()
         self.add_table_updater_callback()
         self.add_tabs_callback()
-        self.app.run()
+        self.app.run_server(debug=True)
 
     def add_tabs_callback(self):
         @self.app.callback(Output('charts-content', 'children'),
