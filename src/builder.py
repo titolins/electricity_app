@@ -34,10 +34,12 @@ class AppBuilder(object):
         cols = list(cols[-1:]) + list(cols[:-1])
         self.df_table = df_table[cols]
 
+    def run(self):
         # build the layout so we can add the callbacks
         self.app.layout = self.build_app_layout()
         self.add_table_updater_callback()
         self.add_tabs_callback()
+        self.app.run()
 
     def add_tabs_callback(self):
         @self.app.callback(Output('charts-content', 'children'),
