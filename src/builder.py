@@ -19,33 +19,60 @@ class AppBuilder(object):
         self.meters = ['sub_metering_1', 'sub_metering_2', 'sub_metering_3',
                        'not_sub_metering']
 
+        # keep a copy of the original one for resampling purposes
+        self._original_df = df.copy()
+        self.df = df
+
         # assign attributes
         self.app = app
         self.title = title
         self.subtitle = subtitle
-        self.df = df
 
+    @property
+    def df_table(self):
+        return self._df_table
+
+    @df_table.setter
+    def df_table(self, value):
         # create df_table, which we use for displaying the data_table
         # we need some work, considering tht date_time is the index and doesn't
         # show up in df.columns
-        df_table = df.copy()
-        df_table['date'] = df_table.index
+        df_table = value.copy()
+        df_table = df_table[self.meters]
+        df_table.columns = [self.legends[c] for c in df_table]
+        df_table['Date'] = df_table.index
         cols = df_table.columns
         cols = list(cols[-1:]) + list(cols[:-1])
-        self.df_table = df_table[cols]
+        self._df_table = df_table[cols]
+
+    @property
+    def df(self):
+        return self._df
+
+    @df.setter
+    def df(self, value):
+        self._df = value
+        self.df_table = value
 
     def run(self):
         # build the layout so we can add the callbacks
         self.app.layout = self.build_app_layout()
         self.add_table_updater_callback()
-        self.add_tabs_callback()
+        self.add_chart_content_callback()
+
+        # run development server
         self.app.run_server(debug=True)
 
-    def add_tabs_callback(self):
+    def add_chart_content_callback(self):
         @self.app.callback(Output('charts-content', 'children'),
-                      [Input('charts-tabs', 'value')])
-        def render_content(tab):
-            print('tab = {}'.format(tab))
+                           [Input('average-options', 'value'),
+                           Input('charts-tabs', 'value')])
+        def render_content(avg_by, tab):
+            print('''inside callback
+                    avg_by: {}
+                    chart_tab: {}
+                  '''.format(avg_by, tab))
+            self.df = self._original_df.resample(avg_by).mean()
             return getattr(self, tab)()
 
     def add_table_updater_callback(self):
@@ -64,9 +91,6 @@ class AppBuilder(object):
                 )
             ].to_dict('rows')
 
-    def change_average_callback(self):
-        raise NotImplementedError
-
     def build_title(self):
         return html.Div([
             html.H1(
@@ -78,20 +102,18 @@ class AppBuilder(object):
                 className='subtitle'
             )])
 
-
     def build_side_panel(self):
         return html.Div([
             html.Label('Average by'),
-            dcc.Dropdown(
+            dcc.RadioItems(id='average-options',
                 options=[
-                    {'label': 'Hour', 'value': 'h'},
-                    {'label': 'Day', 'value': 'd'},
-                    {'label': 'Week', 'value': 'w'},
+                    {'label': 'Hour', 'value': 'H'},
+                    {'label': 'Day', 'value': 'D'},
+                    {'label': 'Week', 'value': 'W'},
                     {'label': 'Month', 'value': 'M'},
-                    {'label': 'Year', 'value': 'D'},
-                ],
-                value='AVG'
-            ),
+                    #{'label': 'Year', 'value': 'Y'}
+                ], value = 'H'
+            )
         ], className='column is-one-fifth')
 
     def get_chart_layout(self):
@@ -154,7 +176,6 @@ class AppBuilder(object):
         return dash_table.DataTable(
             id='datatable-paging',
             columns=[{'name': c, 'id': c} for c in self.df_table.columns],
-            #data=self.df_table.to_dict('rows'),
             pagination_settings={
                 'current_page': 0,
                 'page_size': TABLE_PAGE_SIZE
@@ -181,7 +202,11 @@ class AppBuilder(object):
                     html.Div([
                         self.build_side_panel(),
                         self.build_graph_area(),
-                    ], className='columns'),
+                    ],
+                             className='columns',
+                             style={
+                                 'marginTop': '2em'
+                             }),
                     self.build_data_table()
                 ], className='container'),
             ], className='section')

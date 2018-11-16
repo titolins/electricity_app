@@ -9,8 +9,8 @@ import numpy as np
 #from statsmodels.graphics.tsaplots import plot_acf
 #from statsmodels.graphics.tsaplots import plot_pacf
 
-BASE_PATH = '/mnt/files/Documents/Ubiqum/Task3/2/data/'
-DATA_FILE = 'household_power_consumption.txt'
+BASE_PATH = '/mnt/files/Documents/Ubiqum/Task3/2/electricity_app/data/'
+DATA_FILE = 'full_data.csv'
 #PARSED_DATA_FILE = 'full_data.csv'
 PARSED_DATA_FILE = 'hourly.csv'
 RESAMPLED_MONTH_DATA_FILE = 'resampled_month.csv'
