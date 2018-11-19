@@ -61,6 +61,17 @@ class AppBuilder(object):
                     month=3))
         )
 
+        self.tabs = dict(
+            all_data=dict(
+                name='All data',
+                value='build_main_chart_area',
+            ),
+            season_data=dict(
+                name='By Season',
+                value='build_seasonal_area',
+            )
+        )
+
         # keep a copy of the original one for resampling purposes
         self._original_df = df.copy()
         self.df = df
@@ -85,19 +96,27 @@ class AppBuilder(object):
 
         # add callbacks
         self.add_main_content_callback()
+        self.add_tabs_callback()
         # run development server
         self.app.run_server(debug=debug)
 
+    def add_tabs_callback(self):
+        @self.app.callback(Output('main-area', 'children'),
+                           [Input('charts-tabs', 'value')])
+        def render_content(tab):
+            return getattr(self, self.tabs[tab]['value'])()
+            #return self.build_main_chart_area()
+
     def add_main_content_callback(self):
-        @self.app.callback(Output('main-content', 'children'),
+        @self.app.callback(Output('main-tab-content', 'children'),
                            [Input('resample-button', 'n_clicks')],
-                           [State('charts-tabs', 'value'),
-                            State('resample-frequency', 'value'),
+                           [State('resample-frequency', 'value'),
                             State('average-options', 'value')])
-        def render_content(n_clicks, tab, resample_freq, avg_by):
+        def render_content(n_clicks, resample_freq, avg_by):
             self.df = self._original_df.resample(
                 '{}{}'.format(resample_freq,avg_by)).mean()
-            return getattr(self, tab)()
+            #return getattr(self, tab)()
+            return self.build_chart_all_meters()
 
     def group_by_season(self):
         def group_f(x):
@@ -238,6 +257,7 @@ class AppBuilder(object):
     def build_chart_all_meters(self):
         return self.build_charts(self.feature_cols)
 
+    '''
     def build_chart_sub_metering_1(self):
         return self.build_charts(['sub_metering_1'])
 
@@ -249,27 +269,23 @@ class AppBuilder(object):
 
     def build_chart_not_sub_metering(self):
         return self.build_charts(['not_sub_metering'])
+    '''
 
     def build_tabs(self):
-        all_charts = 'build_chart_all_meters'
-        return dcc.Tabs(id='charts-tabs', value=all_charts, children=[
-            dcc.Tab(label='All meters', value=all_charts),
-            dcc.Tab(label='Dishwasher, oven and microwave',
-                    value='build_chart_sub_metering_1'),
-            dcc.Tab(label=('Washing-machine, tumble-drier, '
-                           'refrigerator and one light'),
-                    value='build_chart_sub_metering_2'),
-            dcc.Tab(label='Water-heater and air-conditioner',
-                    value='build_chart_sub_metering_3'),
-            dcc.Tab(label='Other usage',
-                    value='build_chart_not_sub_metering')
+        return dcc.Tabs(
+            id='charts-tabs',
+            value=list(self.tabs)[0],
+            children=[
+                dcc.Tab(label=self.tabs[t]['name'],
+                        value=t)
+                        for t in self.tabs
         ], style=dict(marginTop='2em'))
 
     def build_main_chart_area(self):
         return html.Div([
             self.build_side_panel(),
             html.Div([
-                html.Div(id='main-content')
+                html.Div(id='main-tab-content')
             ], className='column')
         ], className='columns')
 
@@ -281,7 +297,7 @@ class AppBuilder(object):
         )
 
     def build_seasonal_area(self):
-        s_df = self.group_by_season().mean()[list(self.feature_cols.keys())]
+        s_df = self.group_by_season().mean()[list(self.feature_cols)]
         return html.Div([
             html.Div([
                 '',
@@ -304,14 +320,15 @@ class AppBuilder(object):
                 html.Div([
                     self.build_title(),
                     self.build_tabs(),
-                    self.build_main_chart_area()
+                    #self.build_main_chart_area()
+                    html.Div(id='main-area')
                 ], className='container'),
             ], className='section'),
-            html.Section([
-                html.Div([
-                    html.H3('Seasonal chart', className='title'),
-                    self.build_seasonal_area(),
-                ], className='container')
-            ], className='section')
+            #html.Section([
+            #    html.Div([
+            #        html.H3('Seasonal chart', className='title'),
+            #        self.build_seasonal_area(),
+            #    ], className='container')
+            #], className='section')
         ])
 
