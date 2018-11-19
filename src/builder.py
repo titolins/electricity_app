@@ -187,7 +187,8 @@ class AppBuilder(object):
             ], className='field is-grouped'),
             html.P(
                 html.Button(id='resample-button', n_clicks=0,
-                            children='Resample data', className='button is-primary'),
+                            children='Resample data',
+                            className='button is-primary'),
                 className='control'),
         ], className='column is-one-fifth')
 
