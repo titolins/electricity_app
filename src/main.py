@@ -9,19 +9,20 @@ external_stylesheets = [
     'https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.2/css/bulma.min.css'
 ]
 
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets,
-                meta_tags=[
-                {
-                    'name':'viewport',
-                    'content':'width=device-width, initial-scale=1'
-                },
-])
-df = load_data()
-builder = AppBuilder(
-    app,
-    df,
-    'Task 3.2 - Ubiqum',
-    'Energy consumption')
+def build():
+    app = dash.Dash(__name__, external_stylesheets=external_stylesheets,
+                    meta_tags=[
+                    {
+                        'name':'viewport',
+                        'content':'width=device-width, initial-scale=1'
+                    },
+    ])
+    df = load_data()
+    return AppBuilder(
+        app,
+        df,
+        'Task 3.2 - Ubiqum',
+        'Energy consumption')
 
 if __name__ == '__main__':
-   builder.run()
+    build().run()
