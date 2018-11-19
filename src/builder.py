@@ -1,7 +1,7 @@
 import dash_table
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 
 import datetime
@@ -82,17 +82,21 @@ class AppBuilder(object):
         debug = True if self.env is 'dev' else False
         # build the layout so we can add the callbacks
         self.app.layout = self.build_app_layout()
-        #self.add_table_updater_callback()
+
+        # add callbacks
         self.add_main_content_callback()
         # run development server
         self.app.run_server(debug=debug)
 
     def add_main_content_callback(self):
         @self.app.callback(Output('main-content', 'children'),
-                           [Input('average-options', 'value'),
-                           Input('charts-tabs', 'value')])
-        def render_content(avg_by, tab):
-            self.df = self._original_df.resample(avg_by).mean()
+                           [Input('resample-button', 'n_clicks')],
+                           [State('charts-tabs', 'value'),
+                            State('resample-frequency', 'value'),
+                            State('average-options', 'value')])
+        def render_content(n_clicks, tab, resample_freq, avg_by):
+            self.df = self._original_df.resample(
+                '{}{}'.format(resample_freq,avg_by)).mean()
             return getattr(self, tab)()
 
     def group_by_season(self):
@@ -132,16 +136,42 @@ class AppBuilder(object):
 
     def build_side_panel(self):
         return html.Div([
-            html.Label('Average by'),
-            dcc.RadioItems(id='average-options',
-                options=[
-                    dict(label='Hour', value='H'),
-                    dict(label='Day', value='D'),
-                    dict(label='Week', value='W'),
-                    dict(label='Month', value='M'),
-                    #dict(label='Year', value='Y')
-                ], value = 'H'
-            )
+            html.H2('Average by', className='subtitle',
+                    style=dict(marginTop='1.5em')),
+            html.Div([
+                html.P(
+                    dcc.Input(
+                        id='resample-frequency',
+                        type='number',
+                        step='1',
+                        value='1',
+                        min=1,
+                        style=dict(
+                            marginBottom='.5em',
+                            width='100%',
+                        )
+                    ),
+                    className='control', style=dict(width='40%')),
+                html.P(
+                    dcc.Dropdown(id='average-options',
+                        options=[
+                            dict(label='Hour', value='H'),
+                            dict(label='Day', value='D'),
+                            dict(label='Week', value='W'),
+                            dict(label='Month', value='M'),
+                        ],
+                        value = 'H',
+                        style=dict(
+                            marginBottom='.5em',
+                            width='100%',
+                        )
+                    ),
+                    className='control', style=dict(width='60%')),
+            ], className='field is-grouped'),
+            html.P(
+                html.Button(id='resample-button', n_clicks=0,
+                            children='Resample data', className='button is-primary'),
+                className='control'),
         ], className='column is-one-fifth')
 
     def get_legend_layout(self, x_pos=.55):
@@ -195,12 +225,15 @@ class AppBuilder(object):
         )
 
     def build_charts(self, cols):
-        return dcc.Graph(
-            figure=dict(
-                data=[self.build_chart_line(c) for c in cols],
-                layout=self.get_chart_layout()
+        return html.Div([
+            dcc.Graph(
+                figure=dict(
+                    data=[self.build_chart_line(c) for c in cols],
+                    layout=self.get_chart_layout()
+                ),
+                style=dict(marginTop='1.5em')
             )
-        )
+        ])
 
     def build_chart_all_meters(self):
         return self.build_charts(self.feature_cols)
@@ -238,12 +271,13 @@ class AppBuilder(object):
             html.Div([
                 html.Div(id='main-content')
             ], className='column')
-        ], className='columns', style=dict(marginTop='1em'))
+        ], className='columns')
 
     def build_bar_layout(self):
         return go.Layout(
             barmode='group',
-            legend=self.get_legend_layout(x_pos=.5)
+            legend=self.get_legend_layout(x_pos=.5),
+            height=650
         )
 
     def build_seasonal_area(self):
