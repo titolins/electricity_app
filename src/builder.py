@@ -105,7 +105,6 @@ class AppBuilder(object):
                            [Input('charts-tabs', 'value')])
         def render_content(tab):
             return getattr(self, self.tabs[tab]['value'])()
-            #return self.build_main_chart_area()
 
     def add_main_content_callback(self):
         @self.app.callback(Output('main-tab-content', 'children'),
@@ -115,7 +114,6 @@ class AppBuilder(object):
         def render_content(n_clicks, resample_freq, avg_by):
             self.df = self._original_df.resample(
                 '{}{}'.format(resample_freq,avg_by)).mean()
-            #return getattr(self, tab)()
             return self.build_chart_all_meters()
 
     def group_by_season(self):
@@ -320,15 +318,8 @@ class AppBuilder(object):
                 html.Div([
                     self.build_title(),
                     self.build_tabs(),
-                    #self.build_main_chart_area()
                     html.Div(id='main-area')
                 ], className='container'),
             ], className='section'),
-            #html.Section([
-            #    html.Div([
-            #        html.H3('Seasonal chart', className='title'),
-            #        self.build_seasonal_area(),
-            #    ], className='container')
-            #], className='section')
         ])
 
