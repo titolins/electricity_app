@@ -256,20 +256,6 @@ class AppBuilder(object):
     def build_chart_all_meters(self):
         return self.build_charts(self.feature_cols)
 
-    '''
-    def build_chart_sub_metering_1(self):
-        return self.build_charts(['sub_metering_1'])
-
-    def build_chart_sub_metering_2(self):
-        return self.build_charts(['sub_metering_2'])
-
-    def build_chart_sub_metering_3(self):
-        return self.build_charts(['sub_metering_3'])
-
-    def build_chart_not_sub_metering(self):
-        return self.build_charts(['not_sub_metering'])
-    '''
-
     def build_tabs(self):
         return dcc.Tabs(
             id='charts-tabs',
