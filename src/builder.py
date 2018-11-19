@@ -146,6 +146,16 @@ class AppBuilder(object):
             )
         ], className='column is-one-fifth')
 
+    def get_legend_layout(self, x_pos=.55):
+        return dict(
+            x=x_pos,
+            y=1,
+            bgcolor='rgba(255,255,255,0)',
+            font=dict(
+                size=14
+            )
+        )
+
     def get_chart_layout(self):
         return go.Layout(
             height=650,
@@ -175,14 +185,7 @@ class AppBuilder(object):
             ),
             yaxis=dict(title='Energy consumption'),
             margin=dict(l=40, b=40, t=10, r=10),
-            legend=dict(
-                x=.55,
-                y=1,
-                bgcolor='rgba(255,255,255,0)',
-                font=dict(
-                    size=14
-                )
-            ),
+            legend=self.get_legend_layout(),
             hovermode='closest')
 
     def build_chart_line(self, col):
@@ -231,7 +234,7 @@ class AppBuilder(object):
                     value='build_chart_not_sub_metering')
         ], style=dict(marginTop='2em'))
 
-    def build_main_area(self):
+    def build_main_chart_area(self):
         return html.Div([
             self.build_side_panel(),
             html.Div([
@@ -241,18 +244,24 @@ class AppBuilder(object):
 
     def build_bar_layout(self):
         return go.Layout(
-            barmode='group'
+            barmode='group',
+            legend=self.get_legend_layout(x_pos=.5)
         )
 
     def build_seasonal_area(self):
         s_df = self.group_by_season().mean()[list(self.feature_cols.keys())]
         return html.Div([
+            html.Div([
+                '',
+            ], className='column is-one-fifth'),
             html.Div([dcc.Graph(
                 figure=go.Figure(
                     data=[go.Bar(
                         x=[s.capitalize() for s in self.seasons.keys()],
                         y=s_df[c],
-                        name=self.feature_cols[c]['legend']) for c in s_df],
+                        name=self.feature_cols[c]['legend'],
+                        marker=dict(color=self.feature_cols[c]['color']))
+                          for c in s_df],
                     layout=self.build_bar_layout())),
             ], className='column')
         ], className='columns')
@@ -263,11 +272,12 @@ class AppBuilder(object):
                 html.Div([
                     self.build_title(),
                     self.build_tabs(),
-                    self.build_main_area()
+                    self.build_main_chart_area()
                 ], className='container'),
             ], className='section'),
             html.Section([
                 html.Div([
+                    html.H3('Seasonal chart', className='title'),
                     self.build_seasonal_area(),
                 ], className='container')
             ], className='section')
