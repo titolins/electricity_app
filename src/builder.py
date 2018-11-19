@@ -6,8 +6,6 @@ import plotly.graph_objs as go
 
 import datetime
 
-TABLE_PAGE_SIZE = 20
-
 class AppBuilder(object):
     def __init__(self, app, df, title = '', subtitle = '', env = 'dev'):
         # environment
