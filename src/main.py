@@ -17,6 +17,7 @@ def build():
                         'content':'width=device-width, initial-scale=1'
                     },
     ])
+    app.config['suppress_callback_exceptions'] = True
     df = load_data()
     return AppBuilder(
         app,
