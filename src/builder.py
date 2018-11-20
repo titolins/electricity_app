@@ -37,28 +37,36 @@ class AppBuilder(object):
                     month=3),
                 end=dict(
                     day=20,
-                    month=6)),
+                    month=6),
+                order=1,
+            ),
             summer=dict(
                 start=dict(
                     day=21,
                     month=6),
                 end=dict(
                     day=21,
-                    month=9)),
+                    month=9),
+                order=2,
+            ),
             fall=dict(
                 start=dict(
                     day=22,
                     month=9),
                 end=dict(
                     day=20,
-                    month=12)),
+                    month=12),
+                order=3,
+            ),
             winter=dict(
                 start=dict(
                     day=21,
                     month=12),
                 end=dict(
                     day=19,
-                    month=3))
+                    month=3),
+                order=4,
+            )
         )
 
         self.tabs = dict(
@@ -73,8 +81,8 @@ class AppBuilder(object):
         )
 
         self.season_charts = dict(
-            all_data_by_season='build_seasonal_chart',
-            yearly_data_by_season=''
+            all_data_by_season='build_all_data_seasonal_chart',
+            yearly_data_by_season='build_yearly_data_seasonal_chart'
         )
 
         # keep a copy of the original one for resampling purposes
@@ -148,6 +156,12 @@ class AppBuilder(object):
     def group_by_season(self):
         return self.df.groupby(
             by=lambda x: [s
+                          for s in list(self.seasons)
+                          if self._x_in_season(s,x)][0])
+
+    def group_by_year_and_season(self):
+        return self.df.groupby(
+            by=lambda x: ['{} {}'.format(s,x.year)
                           for s in list(self.seasons)
                           if self._x_in_season(s,x)][0])
 
@@ -292,12 +306,12 @@ class AppBuilder(object):
             height=550
         )
 
-    def build_seasonal_chart(self):
-        s_df = self.group_by_season().sum()[list(self.feature_cols)]
+    def _build_seasonal_chart(self, sort_f, s_df_f):
+        s_df = s_df_f().sum()[list(self.feature_cols)]
         return html.Div([dcc.Graph(
             figure=go.Figure(
                 data=[go.Bar(
-                    x=[s.capitalize() for s in self.seasons.keys()],
+                    x=[s.capitalize() for s in sorted(s_df.index, key=sort_f)],
                     y=s_df[c],
                     name=self.feature_cols[c]['legend'],
                     marker=dict(color=self.feature_cols[c]['color']))
@@ -305,7 +319,14 @@ class AppBuilder(object):
                 layout=self.build_bar_layout())),
         ])
 
-    #def build
+    def build_all_data_seasonal_chart(self):
+        return self._build_seasonal_chart(lambda x:self.seasons[x]['order'],
+                                          self.group_by_season)
+
+    def build_yearly_data_seasonal_chart(self):
+        return self._build_seasonal_chart(
+            lambda x:(x.split()[1], self.seasons[x.split()[0]]['order']),
+            self.group_by_year_and_season)
 
     def build_seasonal_sidebar(self):
         return html.Div([
@@ -316,12 +337,12 @@ class AppBuilder(object):
                 value='all_data_by_season',
                 options=[
                     dict(
-                        label='All data',
+                        label='Season only',
                         value='all_data_by_season',
                     ),
                     dict(
-                        label='Year',
-                        value='',
+                        label='Year and season',
+                        value='yearly_data_by_season',
                     ),
                 ]
             ),
@@ -331,16 +352,6 @@ class AppBuilder(object):
         return html.Div([
             self.build_seasonal_sidebar(),
             html.Div(id='seasonal-chart-area', className='column')
-            #html.Div([dcc.Graph(
-            #    figure=go.Figure(
-            #        data=[go.Bar(
-            #            x=[s.capitalize() for s in self.seasons.keys()],
-            #            y=s_df[c],
-            #            name=self.feature_cols[c]['legend'],
-            #            marker=dict(color=self.feature_cols[c]['color']))
-            #              for c in s_df],
-            #        layout=self.build_bar_layout())),
-            #], className='column')
         ], className='columns')
 
     def build_app_layout(self):
