@@ -68,7 +68,6 @@ class AppBuilder(object):
                 order=4,
             )
         )
-
         self.tabs = dict(
             all_data=dict(
                 name='All data',
@@ -77,18 +76,19 @@ class AppBuilder(object):
             season_data=dict(
                 name='By Season',
                 value='build_seasonal_area',
+            ),
+            predict=dict(
+                name='Run predictions',
+                value='build_prediction_area'
             )
         )
-
         self.season_charts = dict(
             all_data_by_season='build_all_data_seasonal_chart',
             yearly_data_by_season='build_yearly_data_seasonal_chart'
         )
-
         # keep a copy of the original one for resampling purposes
         self._original_df = df.copy()
         self.df = df
-
         # assign attributes
         self.app = app
         self.title = title
@@ -106,7 +106,6 @@ class AppBuilder(object):
         debug = True if self.env is 'dev' else False
         # build the layout so we can add the callbacks
         self.app.layout = self.build_app_layout()
-
         # add callbacks
         self.add_main_content_callback()
         self.add_tabs_callback()
@@ -342,13 +341,11 @@ class AppBuilder(object):
                 id='seasonal-options',
                 value='all_data_by_season',
                 options=[
-                    dict(
-                        label='Season only',
-                        value='all_data_by_season',
+                    dict(label='Season only',
+                         value='all_data_by_season',
                     ),
-                    dict(
-                        label='Year and season',
-                        value='yearly_data_by_season',
+                    dict(label='Year and season',
+                         value='yearly_data_by_season',
                     ),
                 ]
             ),
@@ -358,13 +355,11 @@ class AppBuilder(object):
                 id='seasonal-mode',
                 value='group',
                 options=[
-                    dict(
-                        label='Grouped',
-                        value='group',
+                    dict(label='Grouped',
+                         value='group',
                     ),
-                    dict(
-                        label='Stacked',
-                        value='stack',
+                    dict(label='Stacked',
+                         value='stack',
                     ),
                 ]
             ),
@@ -374,6 +369,22 @@ class AppBuilder(object):
         return html.Div([
             self.build_seasonal_sidebar(),
             html.Div(id='seasonal-chart-area', className='column')
+        ], className='columns')
+
+    def build_prediction_area(self):
+        return html.Div([
+            html.Div([
+                html.H2(
+                    'Auto-ARIMA paramenters',
+                    className='subtitle',
+                    style=dict(marginTop='1.5em')),
+            ], className='column is-one-fifth'),
+            html.Div([
+                html.H1(
+                    'Plot area',
+                    className='subtitle',
+                    style=dict(marginTop='1.5em')),
+            ], className='column')
         ], className='columns')
 
     def build_app_layout(self):
