@@ -4,6 +4,9 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 
+import pandas as pd
+from pyramid import auto_arima
+
 import datetime
 
 class AppBuilder(object):
@@ -86,6 +89,22 @@ class AppBuilder(object):
             all_data_by_season='build_all_data_seasonal_chart',
             yearly_data_by_season='build_yearly_data_seasonal_chart'
         )
+        self.auto_arima_params = dict(
+            #y=dict(),
+            start_p=dict(value=2),
+            d=dict(value=None),
+            start_q=dict(value=2),
+            max_p=dict(value=5),
+            max_d=dict(value=2),
+            max_q=dict(value=5),
+            start_P=dict(value=1),
+            D=dict(value=None),
+            start_Q=dict(value=1),
+            max_P=dict(value=2),
+            max_D=dict(value=1),
+            max_Q=dict(value=2),
+            m=dict(value=1),
+            alpha=dict(value=.05))
         # keep a copy of the original one for resampling purposes
         self._original_df = df.copy()
         self.df = df
@@ -110,8 +129,25 @@ class AppBuilder(object):
         self.add_main_content_callback()
         self.add_tabs_callback()
         self.add_seasonal_content_callback()
+        self.add_prediction_callback()
         # run development server
         self.app.run_server(debug=debug)
+
+    def add_prediction_callback(self):
+        @self.app.callback(Output('prediction-result', 'children'),
+                           [Input('arima-{}'.format('-'.join(p.split('_'))),
+                                  'value')
+                            for p in list(self.auto_arima_params)])
+        def render_prediction(*args):
+            kwargs = dict()
+            for arg,value in zip(self.auto_arima_params, args):
+                kwargs[arg] = value
+            print(kwargs)
+            total = self._original_df.resample('M').mean()
+            total['total'] = sum([total[c] for c in self.feature_cols])
+            model = self.run_auto_arima(total['total'], **kwargs)
+            print(model)
+            return self.build_prediction_chart(model.predict(n_periods=12))
 
     def add_tabs_callback(self):
         @self.app.callback(Output('main-area', 'children'),
@@ -259,24 +295,69 @@ class AppBuilder(object):
             legend=self.get_legend_layout(),
             hovermode='closest')
 
-    def build_chart_line(self, col):
+    def build_chart_line(self, df, col, legend, color):
         return go.Scatter(
-            x=self.df.index,
-            y=getattr(self.df, col),
-            name=self.feature_cols[col]['legend'],
-            line=dict(color=self.feature_cols[col]['color'])
+            x=df.index,
+            y=df[col],
+            name=legend,
+            line=dict(color=color)
         )
 
-    def build_charts(self, cols):
+    def build_arima_prediction_chart_line(self, prediction_res):
+        last_month = self.df.last('D').index.month[0]
+        last_year = self.df.last('D').index.year[0]
+        date_range = pd.date_range(
+            start='{}-{}-01'.format(last_year, last_month),
+            end='{}-{}-01'.format(last_year+1, last_month),
+            freq='M'
+        )
+        df = pd.DataFrame(dict(date=date_range, values=prediction_res))
+        df.set_index('date', inplace=True)
+        print(df)
+        return self.build_chart_line(
+            df,
+            'values',
+            'Prediction result',
+            '#B3FFB3'
+        )
+
+    def build_self_df_chart_line(self, col):
+        return self.build_chart_line(
+            self.df,
+            col,
+            self.feature_cols[col]['legend'],
+            self.feature_cols[col]['color'],
+        )
+
+    def build_scatter_chart(self, data):
         return html.Div([
             dcc.Graph(
                 figure=dict(
-                    data=[self.build_chart_line(c) for c in cols],
+                    data=data,
                     layout=self.get_chart_layout()
                 ),
                 style=dict(marginTop='1.5em')
             )
         ])
+
+    def build_prediction_chart(self, prediction_res):
+        return self.build_scatter_chart(
+            [self.build_arima_prediction_chart_line(prediction_res)])
+
+    def build_charts(self, cols):
+        return self.build_scatter_chart([self.build_self_df_chart_line(c)
+                                         for c in cols])
+    '''
+        return html.Div([
+            dcc.Graph(
+                figure=dict(
+                    data=[self.build_self_df_chart_line(c) for c in cols],
+                    layout=self.get_chart_layout()
+                ),
+                style=dict(marginTop='1.5em')
+            )
+        ])
+    '''
 
     def build_chart_all_meters(self):
         return self.build_charts(self.feature_cols)
@@ -371,21 +452,77 @@ class AppBuilder(object):
             html.Div(id='seasonal-chart-area', className='column')
         ], className='columns')
 
+    def build_arima_parameters(self):
+        return html.Div([
+                html.Div([
+                    html.P(
+                        html.Div([
+                            html.Label(list(self.auto_arima_params)[i],
+                                       className='label'),
+                            dcc.Input(
+                                id='arima-{}'.format(
+                                    '-'.join(list(self.auto_arima_params)[i].
+                                             split('_'))),
+                                type='number',
+                                step=1,
+                                value=self.auto_arima_params[
+                                    list(self.auto_arima_params)[i]]['value'],
+                                min=0,
+                                style=dict(width='100%'),
+                            ),
+                        ]),
+                        className='control', style=dict(width='50%')),
+                    html.P(
+                        html.Div([
+                            html.Label(list(self.auto_arima_params)[i+1],
+                                       className='label'),
+                            dcc.Input(
+                                id='arima-{}'.format(
+                                    '-'.join(list(self.auto_arima_params)[i+1].
+                                             split('_'))),
+                                type='number',
+                                step=1,
+                                value=self.auto_arima_params[
+                                    list(self.auto_arima_params)[i+1]
+                                ]['value'],
+                                min=0,
+                                style=dict(width='100%'),
+                            ),
+                        ]),
+                        className='control', style=dict(width='50%')),
+                ], className='field is-grouped',
+                   style=dict(marginBottom='.5em'))
+                for i in range(0, len(list(self.auto_arima_params)), 2)
+        ])
+
+
     def build_prediction_area(self):
         return html.Div([
             html.Div([
                 html.H2(
-                    'Auto-ARIMA paramenters',
+                    'Auto-ARIMA parameters',
                     className='subtitle',
                     style=dict(marginTop='1.5em')),
+                self.build_arima_parameters(),
+                html.Button(id='run-prediction-button', n_clicks=0,
+                            children='Run prediction',
+                            className='button is-primary'),
             ], className='column is-one-fifth'),
             html.Div([
-                html.H1(
-                    'Plot area',
-                    className='subtitle',
-                    style=dict(marginTop='1.5em')),
+                html.Div(id='prediction-result')
             ], className='column')
         ], className='columns')
+
+    def run_auto_arima(self, y, **kwargs):
+        print(kwargs)
+        return auto_arima(
+            y,
+            seasonal=True,
+            trace=True,
+            error_action='ignore',  # don't want to know if an order does not work
+            suppress_warnings=True,  # don't want convergence warnings
+            stepwise=True,  # set to stepwise
+            **kwargs)
 
     def build_app_layout(self):
         return html.Div([
