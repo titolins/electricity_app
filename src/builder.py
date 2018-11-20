@@ -72,6 +72,11 @@ class AppBuilder(object):
             )
         )
 
+        self.season_charts = dict(
+            all_data_by_season='build_seasonal_chart',
+            yearly_data_by_season=''
+        )
+
         # keep a copy of the original one for resampling purposes
         self._original_df = df.copy()
         self.df = df
@@ -97,6 +102,7 @@ class AppBuilder(object):
         # add callbacks
         self.add_main_content_callback()
         self.add_tabs_callback()
+        self.add_seasonal_content_callback()
         # run development server
         self.app.run_server(debug=debug)
 
@@ -105,6 +111,12 @@ class AppBuilder(object):
                            [Input('charts-tabs', 'value')])
         def render_content(tab):
             return getattr(self, self.tabs[tab]['value'])()
+
+    def add_seasonal_content_callback(self):
+        @self.app.callback(Output('seasonal-chart-area', 'children'),
+                           [Input('seasonal-options', 'value')])
+        def render_seasonal_content(value):
+            return getattr(self, self.season_charts[value])()
 
     def add_main_content_callback(self):
         @self.app.callback(Output('main-tab-content', 'children'),
@@ -116,29 +128,28 @@ class AppBuilder(object):
                 '{}{}'.format(resample_freq,avg_by)).mean()
             return self.build_chart_all_meters()
 
+    def _get_season_dates_for_x(self, season, x):
+        return (datetime.date(day=self.seasons[season]['start']['day'],
+                              month=self.seasons[season]['start']['month'],
+                              year=(x.year-1) if (season == 'winter' and \
+                                                  x.month <= 3) else \
+                                    x.year),
+                datetime.date(day=self.seasons[season]['end']['day'],
+                              month=self.seasons[season]['end']['month'],
+                              year=(x.year+1) if (season == 'winter' and \
+                                                  x.month == 12) else \
+                                    x.year))
+
+    def _x_in_season(self, season, x):
+        x_date = datetime.date(day=x.day, month=x.month, year=x.year)
+        s_date, e_date = self._get_season_dates_for_x(season, x)
+        return (x_date >= s_date and x_date <= e_date)
+
     def group_by_season(self):
-        def group_f(x):
-            x_date = datetime.date(day=x.day, month=x.month, year=x.year)
-            for s in self.seasons.keys():
-                s_date = datetime.date(day=self.seasons[s]['start']['day'],
-                                       month=self.seasons[s]['start']['month'],
-                                       year=(x.year-1) if \
-                                            (
-                                                s == 'winter' and \
-                                                x.month <= 3
-                                            ) else \
-                                            x.year)
-                e_date = datetime.date(day=self.seasons[s]['end']['day'],
-                                       month=self.seasons[s]['end']['month'],
-                                       year=(x.year+1) if \
-                                            (
-                                                s == 'winter' and \
-                                                x.month == 12
-                                            )  else \
-                                            x.year)
-                if x_date >= s_date and x_date <= e_date:
-                    return s
-        return self.df.groupby(by=group_f)
+        return self.df.groupby(
+            by=lambda x: [s
+                          for s in list(self.seasons)
+                          if self._x_in_season(s,x)][0])
 
     def build_title(self):
         return html.Div([
@@ -278,25 +289,58 @@ class AppBuilder(object):
         return go.Layout(
             barmode='group',
             legend=self.get_legend_layout(x_pos=.5),
-            height=650
+            height=550
         )
 
-    def build_seasonal_area(self):
-        s_df = self.group_by_season().mean()[list(self.feature_cols)]
+    def build_seasonal_chart(self):
+        s_df = self.group_by_season().sum()[list(self.feature_cols)]
+        return html.Div([dcc.Graph(
+            figure=go.Figure(
+                data=[go.Bar(
+                    x=[s.capitalize() for s in self.seasons.keys()],
+                    y=s_df[c],
+                    name=self.feature_cols[c]['legend'],
+                    marker=dict(color=self.feature_cols[c]['color']))
+                      for c in s_df],
+                layout=self.build_bar_layout())),
+        ])
+
+    #def build
+
+    def build_seasonal_sidebar(self):
         return html.Div([
-            html.Div([
-                '',
-            ], className='column is-one-fifth'),
-            html.Div([dcc.Graph(
-                figure=go.Figure(
-                    data=[go.Bar(
-                        x=[s.capitalize() for s in self.seasons.keys()],
-                        y=s_df[c],
-                        name=self.feature_cols[c]['legend'],
-                        marker=dict(color=self.feature_cols[c]['color']))
-                          for c in s_df],
-                    layout=self.build_bar_layout())),
-            ], className='column')
+            html.H2('Group by', className='subtitle',
+                    style=dict(marginTop='1.5em')),
+            dcc.RadioItems(
+                id='seasonal-options',
+                value='all_data_by_season',
+                options=[
+                    dict(
+                        label='All data',
+                        value='all_data_by_season',
+                    ),
+                    dict(
+                        label='Year',
+                        value='',
+                    ),
+                ]
+            ),
+        ], className='column is-one-fifth')
+
+    def build_seasonal_area(self):
+        return html.Div([
+            self.build_seasonal_sidebar(),
+            html.Div(id='seasonal-chart-area', className='column')
+            #html.Div([dcc.Graph(
+            #    figure=go.Figure(
+            #        data=[go.Bar(
+            #            x=[s.capitalize() for s in self.seasons.keys()],
+            #            y=s_df[c],
+            #            name=self.feature_cols[c]['legend'],
+            #            marker=dict(color=self.feature_cols[c]['color']))
+            #              for c in s_df],
+            #        layout=self.build_bar_layout())),
+            #], className='column')
         ], className='columns')
 
     def build_app_layout(self):
