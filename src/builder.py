@@ -122,9 +122,10 @@ class AppBuilder(object):
 
     def add_seasonal_content_callback(self):
         @self.app.callback(Output('seasonal-chart-area', 'children'),
-                           [Input('seasonal-options', 'value')])
-        def render_seasonal_content(value):
-            return getattr(self, self.season_charts[value])()
+                           [Input('seasonal-options', 'value'),
+                            Input('seasonal-mode', 'value')])
+        def render_seasonal_content(option, mode):
+            return getattr(self, self.season_charts[option])(mode)
 
     def add_main_content_callback(self):
         @self.app.callback(Output('main-tab-content', 'children'),
@@ -299,34 +300,39 @@ class AppBuilder(object):
             ], className='column')
         ], className='columns')
 
-    def build_bar_layout(self):
+    def build_bar_layout(self, mode):
         return go.Layout(
-            barmode='group',
+            barmode=mode,
             legend=self.get_legend_layout(x_pos=.5),
             height=550
         )
 
-    def _build_seasonal_chart(self, sort_f, s_df_f):
+    def _build_seasonal_chart(self, sort_f, s_df_f, mode):
         s_df = s_df_f().sum()[list(self.feature_cols)]
+        sorted_cols=sorted(s_df.index, key=sort_f)
+        s_df = s_df.reindex(sorted_cols)
         return html.Div([dcc.Graph(
             figure=go.Figure(
                 data=[go.Bar(
-                    x=[s.capitalize() for s in sorted(s_df.index, key=sort_f)],
+                    x=[s.capitalize() for s in s_df.index],
                     y=s_df[c],
                     name=self.feature_cols[c]['legend'],
                     marker=dict(color=self.feature_cols[c]['color']))
-                      for c in s_df],
-                layout=self.build_bar_layout())),
+                      for c in list(self.feature_cols)],
+                layout=self.build_bar_layout(mode))),
         ])
 
-    def build_all_data_seasonal_chart(self):
+    def build_all_data_seasonal_chart(self, mode):
         return self._build_seasonal_chart(lambda x:self.seasons[x]['order'],
-                                          self.group_by_season)
+                                          self.group_by_season,
+                                          mode)
 
-    def build_yearly_data_seasonal_chart(self):
+    def build_yearly_data_seasonal_chart(self, mode):
         return self._build_seasonal_chart(
-            lambda x:(x.split()[1], self.seasons[x.split()[0]]['order']),
-            self.group_by_year_and_season)
+            lambda x:(int(x.split()[1]), self.seasons[x.split()[0]]['order']),
+            self.group_by_year_and_season,
+            mode
+        )
 
     def build_seasonal_sidebar(self):
         return html.Div([
@@ -343,6 +349,22 @@ class AppBuilder(object):
                     dict(
                         label='Year and season',
                         value='yearly_data_by_season',
+                    ),
+                ]
+            ),
+            html.H2('Bar mode', className='subtitle',
+                    style=dict(marginTop='1.5em')),
+            dcc.RadioItems(
+                id='seasonal-mode',
+                value='group',
+                options=[
+                    dict(
+                        label='Grouped',
+                        value='group',
+                    ),
+                    dict(
+                        label='Stacked',
+                        value='stack',
                     ),
                 ]
             ),
