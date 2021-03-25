@@ -110,7 +110,7 @@ python-dateutil==2.7.3
 python-slugify==1.2.6
 pytoml==0.1.20
 pytz==2018.5
-PyYAML==3.13
+PyYAML==5.4
 pyzmq==17.1.2
 qtconsole==4.4.3
 queuelib==1.5.0
